@@ -8,7 +8,7 @@ local NotificationService = {}
 
 --// > Services < //--
 --// ? all the services used in this service
-local GuiService = game:GetService("GuiService") --// ? something
+local GuiService = game:GetService("GuiService") --// ? for the topbar inset
 local CoreGui = game:GetService("CoreGui") --// ? where the notification GUI is stored
 local TweenService = game:GetService("TweenService") --// ? used for tweening everything
 local RunService = game:GetService("RunService") --// ? used for the heartbeat connection
@@ -25,8 +25,8 @@ local existingNotifications = {} --// ? to store the notification templates, use
 local activeNotificationCount = 0 --// ? the amount of active notifications, used for counter
 local heartbeatConnection = nil --// ? heartbeat connection
 local SoundHost --// ? the sound host
-local startSound, typeSound, endSound
-local random = Random.new()
+local startSound, typeSound, endSound --// ? the sounds
+local random = Random.new() --// ? could we use math.random()? yea, but i don't care
 
 --// > Helpers < //--
 function NotificationService.Init(plugin, prefsTable)
@@ -294,8 +294,8 @@ function NotificationService.Notify(message, isSuccess, serviceName, duration)
 	local fullText = prefix .. message
 	local textColor = isSuccess and (Preferences.textSuccessColor or Color3.fromRGB(85, 255, 127)) or (Preferences.textFailColor or Color3.fromRGB(255, 85, 127))
 	
-	if existingNotifications[fullText] then
-		local data = existingNotifications[fullText]
+	local data = existingNotifications[fullText]
+	if data then
 		data.ExpireTime = os.clock() + duration
 		data.Count += 1
 
@@ -313,6 +313,8 @@ function NotificationService.Notify(message, isSuccess, serviceName, duration)
 		playSound(typeSound, 0.2, 1.1 + (random:NextNumber() * 0.2))
 		return 
 	end
+	
+	existingNotifications[fullText] = { ExpireTime = os.clock() + duration, Count = 1 }
 
 	local maxWidth = Preferences.maxNotificationWidth or 1200
 	local prefSize = Preferences.textSize or 26
@@ -510,51 +512,53 @@ function NotificationService.Notify(message, isSuccess, serviceName, duration)
 	local introDuration = ((globalCharCount * textSpeed) + 1.2) + duration --// ? total amount of time
 
 	task.spawn(function()
-		task.wait(introDuration - 0.1)
-		local timeLeft = math.max(0, notificationData.ExpireTime - os.clock())
+		task.wait(introDuration - 0.1) --// ? wait for the duration to be over
 
-		task.delay(timeLeft, function()
-			if not mainContainer or not mainContainer.Parent then end
+		while os.clock() < notificationData.ExpireTime do task.wait(notificationData.ExpireTime - os.clock()) end --// ? wait for the duration to be over
+		if not mainContainer or not mainContainer.Parent then return end --// ? if the container was destroyed, then we can just be lazy
 
-			if os.clock() >= notificationData.ExpireTime then if existingNotifications[fullText] == notificationData then existingNotifications[fullText] = nil end
-				playSound(endSound, 0.35)
+		if existingNotifications[fullText] == notificationData then existingNotifications[fullText] = nil end --// ? remove from existingnotifications table i think i lowk forgot
 
-				local separator = mainContainer:FindFirstChild("Separator") --// ? seperator
-				if separator then --// ? tween out for the seperator if there is one
-					local sepGlow, sepOutInfo = separator:FindFirstChildOfClass("UIStroke"), TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In) --// ? seperator's uistroke, aswell as the tween info
-					TweenService:Create(separator, sepOutInfo, {Size = UDim2.new(0, 0, 0, 2), BackgroundTransparency = 1}):Play() --// ? tween out seperator
-					if sepGlow then TweenService:Create(sepGlow, sepOutInfo, {Thickness = 0, Transparency = 1}):Play() end --// ? tween out glow
-				end
-				
-				local counterInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut) --// ? outro tween for counterlabel
+		playSound(endSound, 0.35) --// ? play endsound
 
-				TweenService:Create(counterLabel, counterInfo, {TextTransparency = 1}):Play() TweenService:Create(counterStroke, counterInfo, {Transparency = 1}):Play()
+		local separator = mainContainer:FindFirstChild("Separator") --// ? seperator
+		if separator then --// ? tween out for the seperator if there is one
+			local sepGlow, sepOutInfo = separator:FindFirstChildOfClass("UIStroke"), TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In) --// ? seperator's uistroke, aswell as the tween info
+			TweenService:Create(separator, sepOutInfo, {Size = UDim2.new(0, 0, 0, 2), BackgroundTransparency = 1}):Play() --// ? tween out seperator
+			if sepGlow then TweenService:Create(sepGlow, sepOutInfo, {Thickness = 0, Transparency = 1}):Play() end --// ? tween out glow
+		end
 
-				local totalChars = #dropsTable --// ? total character count
+		local counterInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut) --// ? outro tweeninfo for counterlabel
 
-				for i, drop in ipairs(dropsTable) do
-					local staggerDelay = i * (Preferences.textEndSpeed or 0.015) --// ? stagger delay
-					local outInfo = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.In, 0, false, staggerDelay) --// ? the outro tween for labels and strokes
-					TweenService:Create(labelsTable[i], outInfo, {TextTransparency = 1}):Play() TweenService:Create(strokesTable[i], outInfo, {Transparency = 1}):Play()
-					local dropTween = TweenService:Create(drop, outInfo, {Position = UDim2.new(0, random:NextNumber(-10, 10), random:NextNumber(1.5, 1.75), 0)}) --// ? the tween for drops
-					dropTween:Play() --// ? play droptween
+		TweenService:Create(notificationData.CounterLabel, counterInfo, {TextTransparency = 1}):Play() --// ? outro tween for counterlabel
+		TweenService:Create(notificationData.CounterStroke, counterInfo, {Transparency = 1}):Play() --// ? outro tween for counterstroke
 
-					if i == totalChars then
-						dropTween.Completed:Connect(function()
-							local idx = table.find(activeNotifications, notificationData) --// ? finds activenotifications table
-							if idx then table.remove(activeNotifications, idx) end --// ? cleans up activenotifications table
+		local totalChars = #dropsTable --// ? total character count
+		for i, drop in ipairs(dropsTable) do
+			local staggerDelay = i * (Preferences.textEndSpeed or 0.015) --// ? stagger delay
+			local outInfo = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.In, 0, false, staggerDelay) --// ? the outro tween for labels and strokes
+			TweenService:Create(labelsTable[i], outInfo, {TextTransparency = 1}):Play() 
+			TweenService:Create(strokesTable[i], outInfo, {Transparency = 1}):Play()
 
-							local finalSize = mainContainer.AbsoluteSize --// ? final size for maincontainer
-							local collapseInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out) --// ? the outro tween for maincontainer
-							mainContainer.AutomaticSize, mainContainer.Size, mainContainer.ClipsDescendants = Enum.AutomaticSize.None, UDim2.fromOffset(finalSize.X, finalSize.Y), true --// ? maincontainer values
-							local collapseTween = TweenService:Create(mainContainer, collapseInfo, {Size = UDim2.new(0, finalSize.X, 0, 0)}) --// ? tween out maincontainer
-							collapseTween:Play() --// ? play collapsetween
-							collapseTween.Completed:Connect(function() for _, node in ipairs(uiNodesTable) do releaseCharUI(node) end mainContainer:Destroy() end)
-						end)
-					end
-				end
+			local dropTween = TweenService:Create(drop, outInfo, {Position = UDim2.new(0, random:NextNumber(-10, 10), random:NextNumber(1.5, 1.75), 0)}) --// ? the tween for drops
+			dropTween:Play() --// ? play droptween
+
+			if i == totalChars then
+				dropTween.Completed:Connect(function()
+					local idx = table.find(activeNotifications, notificationData) --// ? finds activenotifications table
+					if idx then table.remove(activeNotifications, idx) end --// ? cleans up activenotifications table
+
+					local finalSize = mainContainer.AbsoluteSize --// ? final size for maincontainer
+					local collapseInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out) --// ? the outro tween for maincontainer
+					mainContainer.AutomaticSize, mainContainer.Size, mainContainer.ClipsDescendants = Enum.AutomaticSize.None, UDim2.fromOffset(finalSize.X, finalSize.Y), true --// ? maincontainer values
+
+					local collapseTween = TweenService:Create(mainContainer, collapseInfo, {Size = UDim2.new(0, finalSize.X, 0, 0)}) --// ? tween out maincontainer
+					collapseTween:Play() --// ? play collapsetween
+
+					collapseTween.Completed:Connect(function() for _, node in ipairs(uiNodesTable) do releaseCharUI(node) end mainContainer:Destroy()  end)
+				end)
 			end
-		end)
+		end
 	end)
 end
 return NotificationService
