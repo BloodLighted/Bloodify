@@ -1,12 +1,11 @@
 --// > ConvertPlus | An HDify Fork < //--
---// ! Version: V1.2.0 | Last Updated: 3/17/26 | Made by BloodLight (@Heavenly_Strings on Roblox)
+--// ! Version: V1.2.1 | Last Updated: 3/21/26 | Made by BloodLight (@Heavenly_Strings on Roblox)
 --// the main purpose of the plugin is to convert Accessories to be much better and less partcount-intensive in heavy games
 --// devforum: https://devforum.roblox.com/t/convertplus-an-optimized-accessory-and-face-converter-v120
 --[[// | TODO: 
 previous todo was repurposed into a diff plugin that may or may not release
-fix converted face scaling | next upd(?)
 make converting into meshparts in AccessoryService optional via Preferences | next upd
-figure out a way to make new keys/values be automatically added to Preferences | insure if possible
+figure out a way to make new keys/values be automatically added to Preferences | unsure if possible
 //]]
 --!optimize 2
 --!native
