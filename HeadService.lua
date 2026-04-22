@@ -87,26 +87,46 @@ function HeadService.ConvertHead(): number
 		local defaultType = Enum.MeshType.Head
 		local defaultId = ""
 
-		if originalFaceMesh then --// this is very much broken but oh well i guess
+		if originalFaceMesh then
 			--// if we found a SpecialMesh, use its actual data
 			faceMesh.MeshType = originalFaceMesh.MeshType
 			faceMesh.MeshId = originalFaceMesh.MeshId
-			faceMesh.Scale = originalFaceMesh.Scale * 1.05
+			faceMesh.Scale = originalFaceMesh.Scale * 1.001
 		else
 			--// if it's a MeshPart head, grab the ID from the Head itself
 			if head:IsA("MeshPart") then
 				faceMesh.MeshType = Enum.MeshType.FileMesh
 				faceMesh.MeshId = head.MeshId
-				faceMesh.Scale = defaultScale * 1.05
+				faceMesh.Scale = defaultScale * 1.001
 			else
 				faceMesh.MeshType = defaultType
-				faceMesh.Scale = defaultScale * 1.05
+				faceMesh.Scale = defaultScale * 1.001
+			end
+		end
+
+		faceMesh.Parent = facePart --// genuinely no idea why but i didn't have this in the last upd i'm so sorry
+
+		local faceTextureToUse = currentFace.Texture --// fallback logic for face decal (because ugc heads are weird)
+		if Preferences.meshTextureFallbackForFace and faceTextureToUse == "rbxasset://textures/face.png" then
+			local fallbackTexture = ""
+
+			if originalFaceMesh and originalFaceMesh.TextureId ~= "" then
+				fallbackTexture = originalFaceMesh.TextureId
+				originalFaceMesh.TextureId = ""
+			elseif head:IsA("MeshPart") and head.TextureID ~= "" then
+				fallbackTexture = head.TextureID
+				head.TextureID = ""
+			end
+
+			--// only override if a valid fallback texture was actually found
+			if fallbackTexture ~= "" then
+				faceTextureToUse = fallbackTexture
 			end
 		end
 
 		local mainFace = Instance.new("Decal") --// the face itself
 		mainFace.Name = Preferences.faceDecalName or "MainFaceDecal"
-		mainFace.Texture = currentFace.Texture
+		mainFace.Texture = faceTextureToUse
 		mainFace.Parent = facePart
 
 		if Preferences.keepOldFace then --// HDify feature
