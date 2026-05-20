@@ -42,6 +42,7 @@ return {
 	useLegacyWeldParenting = false, --// (bool) | if true, will put the welds in a folder under Accessories/Hats instead of the accessory (default: false)
 	useLegacyAccessoryWeld = false, --// (bool) | if true, the weld will be a normal Weld instead of a WeldConstraint. this means you cannot move the part or the weld breaks (default: false)
 	--// ! accessory settings
+	convertToMeshPart = true, --// (bool) | if true, converts the accessory Handle into a MeshPart (default: true)
 	useLegacyAccessoryParenting = false, --// (bool) | if true, creates a single folder under the model itself for all accessories, similar to HDify (default: false)
 	accessoryNamePrefix = "[Accessory]", --// (string) | the prefix that is put in front of the name of the accessory (default: "[Accessory]")
 	accessoryRenderFidelity = Enum.RenderFidelity.Automatic, --// (enum) | the render fidelity of the Accessory Mesh (default: Enum.RenderFidelity.Automatic)
