@@ -1,11 +1,9 @@
 --// > ConvertPlus | An HDify Fork < //--
---// ! Version: V1.2.1 | Last Updated: 3/21/26 | Made by BloodLight (@Heavenly_Strings on Roblox)
---// the main purpose of the plugin is to convert Accessories to be much better and less partcount-intensive in heavy games
+--// ! Version: V1.2.2 | Last Updated: 5/19/26 | Made by BloodLight (@Heavenly_Strings on Roblox)
+--// the main purpose of the plugin is to convert Accessories to be much better and less instance-intensive in heavy games
 --// devforum: https://devforum.roblox.com/t/convertplus-an-optimized-accessory-and-face-converter-v120
---[[// | TODO: 
-previous todo was repurposed into a diff plugin that may or may not release
-make converting into meshparts in AccessoryService optional via Preferences | next upd
-figure out a way to make new keys/values be automatically added to Preferences | unsure if possible
+--[[// | TODO:
+figure out a way to make new keys/values be automatically added to Preferences | part 1 of it done
 //]]
 --!optimize 2
 --!native
@@ -16,7 +14,7 @@ figure out a way to make new keys/values be automatically added to Preferences |
 local Selection = game:GetService("Selection") --// used for current selection, for Preferences
 local RunService = game:GetService("RunService") --// used for :IsStudio()
 local ServerStorage = game:GetService("ServerStorage") --// used for storing Preferences temporarily
-local ScriptEditorService = game:GetService("ScriptEditorService") --// used for opening Preferences
+local ScriptEditorService = game:GetService("ScriptEditorService") --// used for opening Preferences because OpenScript is (unfortunately) 
 
 --// > Resources < //--
 --// ! all the modules and assets used in the plugin
@@ -28,22 +26,17 @@ local NotificationService = require(Modules.NotificationService) --// handles no
 
 --// > Functions < //--
 --// ! functions used for Preferences
---// convert other types to strings for SetSetting
-local function Serialize(val: any): any
+local function Serialize(val: any): any --// convert other types to strings for SetSetting
 	if typeof(val) == "Color3" then return "COLOR3:" .. val:ToHex()
 	elseif typeof(val) == "EnumItem" then return "ENUM:" .. tostring(val) end return val
 end
 
---// convert string values to their original types
-local function Deserialize(val: any): any
+local function Deserialize(val: any): any --// convert string values to their original types
 	if type(val) == "string" then
 		if val:find("COLOR3:") then return Color3.fromHex((val:gsub("COLOR3:", "")))
-		elseif val:find("ENUM:") then
-			local path = val:gsub("ENUM:", "")
+		elseif val:find("ENUM:") then local path = val:gsub("ENUM:", "")
 			local parts = path:split(".") --// expecting: ["Enum", "Font", "BuilderSansExtraBold"]
-			if #parts >= 3 then local success, enumObj = pcall(function() return Enum[parts[2]][parts[3]] end)
-				return success and enumObj or val
-			end
+			if #parts >= 3 then local success, enumObj = pcall(function() return Enum[parts[2]][parts[3]] end) return success and enumObj or val end
 		end
 	end return val end
 
@@ -53,13 +46,13 @@ local function SavePreferences(newPrefsTable: {[string]: any}, rawSource: string
 	if rawSource then plugin:SetSetting("SavedRawSource", rawSource) end
 end
 
---// load the preferences
+--// load the preferences (experimenting with one of the todo's (kinda works?? maybe?????))
 local function LoadPreferences()
 	for key, defaultValue in pairs(Preferences) do local savedValue = plugin:GetSetting(key)
-		if savedValue ~= nil then Preferences[key] = Deserialize(savedValue) end
+		if savedValue ~= nil then Preferences[key] = Deserialize(savedValue) 
+		else plugin:SetSetting(key, Serialize(defaultValue)) end
 	end
-end
-LoadPreferences()
+end LoadPreferences()
 
 --// > Init < //--
 --// ! handles the initialization of the modules for Preferences, aswell as check if the plugin is the latest ver
@@ -79,14 +72,14 @@ accessoryButton.Click:Connect(function() AccService.ConvertAccessories() end) he
 local selectionConnection: RBXScriptConnection? = nil
 preferencesButton.Click:Connect(function()
 	if selectionConnection then return end
-	local prefScript = ServerStorage:FindFirstChild("ConvertPlusPreferences")
+	local prefScript: LuaSourceContainer = ServerStorage:FindFirstChild("ConvertPlusPreferences") :: LuaSourceContainer
 
 	if not prefScript then prefScript = Modules.ConvertPlusPreferences:Clone()
 		local savedSource = plugin:GetSetting("SavedRawSource")
 		if savedSource then prefScript.Source = savedSource end
 		prefScript.Parent = ServerStorage
 	end
-	
+
 	--// selects and opens the module
 	Selection:Set({prefScript}) ScriptEditorService:OpenScriptDocumentAsync(prefScript)
 
@@ -96,23 +89,20 @@ preferencesButton.Click:Connect(function()
 		--// check if the selection is empty or the first item is not the script
 		if #currentSelection == 0 or currentSelection[1] ~= prefScript then
 			if selectionConnection then selectionConnection:Disconnect() selectionConnection = nil end
-			
+
 			if not prefScript then return end
-			
+
 			--// save before deleting
 			local code = (prefScript :: ModuleScript).Source
-			--// 1. | Load the chunk first
+			--// 1. | load the chunk first
 			local chunk, compileError = loadstring(code)
-
-			--// 2. | Check if it actually loaded due to strict
+			--// 2. | check if it actually loaded due to strict
 			if not chunk then warn("{ConvertPlus} [Error] [!] // > Syntax Error in Preferences: " .. tostring(compileError)) return end
-
-			--// 3. | Execute the chunk
+			--// 3. | execute the chunk
 			local success, result = pcall(chunk)
-
 			if success and type(result) == "table" then
 				if type(result) == "table" then
-					--// success, save
+					--// success, save (yay!)
 					SavePreferences(result, code) NotificationService.Notify("Preferences Saved & Cleaned Up! ^_^", true, "System", 6)
 				else
 					--// if the result isn't a table, mainly if the entire table got deleted or something similar
@@ -121,15 +111,13 @@ preferencesButton.Click:Connect(function()
 			elseif game:GetService("RunService"):IsStudio() and game:GetService("RunService"):IsRunning() then
 				--// cannot save if in studio playtest
 				NotificationService.Notify("Save Failed: Cannot save during Playtest. :c", false, "System", 7)
-			elseif not success and result:find("setv") or result:find("getv") then
+			elseif not success and (result and (result:find("setv") or result:find("getv"))) then
 				--// if the result contains getv or setv
 				NotificationService.Notify("Save Failed: Restricted global variable used. :c", false, "System", 7)
 			else
 				--// shows the lua error as a last resort
-				warn("{ConvertPlus} [Error] [!] // > " .. tostring(result))
 				NotificationService.Notify("Save Failed: " .. tostring(result), false, "System", 14)
 			end
-
 			--// cleanup
 			prefScript:Destroy()
 		end
